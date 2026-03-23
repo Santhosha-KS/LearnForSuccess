@@ -22,7 +22,7 @@ export default function AICourse() {
   // Extract all {ImageName} tokens from content
   const sectionImageNames = [...section.content.matchAll(/\{(\w+)\}/g)].map(m => m[1]);
 
-  const renderContent = (text) => {
+  const renderContent = (text, color = mod.color) => {
     // Group lines into blocks: table blocks vs individual lines
     // Strip {ImageName} tokens — they are consumed by CourseImage, not rendered as text
     const lines = text.replace(/\{\w+\}/g, '').split('\n');
@@ -75,7 +75,7 @@ export default function AICourse() {
                   {header.map((cell, ci) => (
                     <th key={ci} style={{
                       padding: '8px 12px', textAlign: 'left', fontWeight: 600,
-                      color: mod.color, borderBottom: `2px solid ${mod.color}`,
+                      color: color, borderBottom: `2px solid ${color}`,
                       background: 'var(--bg-secondary)', whiteSpace: 'nowrap'
                     }}>{cell}</th>
                   ))}
@@ -99,12 +99,12 @@ export default function AICourse() {
         return (
           <div key={bi} style={{ margin: '12px 0', borderRadius: '8px', overflow: 'hidden', border: '1px solid var(--border-color)' }}>
             {block.title && (
-              <div style={{ background: `${mod.color}22`, borderBottom: `1px solid ${mod.color}44`, padding: '7px 16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <div style={{ width: '3px', height: '14px', background: mod.color, borderRadius: '2px', flexShrink: 0 }} />
-                <span style={{ fontSize: '0.75rem', fontWeight: 700, color: mod.color, letterSpacing: '0.3px' }}>{block.title}</span>
+              <div style={{ background: `${color}22`, borderBottom: `1px solid ${color}44`, padding: '7px 16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <div style={{ width: '3px', height: '14px', background: color, borderRadius: '2px', flexShrink: 0 }} />
+                <span style={{ fontSize: '0.75rem', fontWeight: 700, color: color, letterSpacing: '0.3px' }}>{block.title}</span>
               </div>
             )}
-            <pre style={{ background: 'var(--bg-secondary)', padding: '16px', overflowX: 'auto', fontSize: '0.78rem', lineHeight: '1.6', margin: 0, borderLeft: `3px solid ${mod.color}` }}>
+            <pre style={{ background: 'var(--bg-secondary)', padding: '16px', overflowX: 'auto', fontSize: '0.78rem', lineHeight: '1.6', margin: 0, borderLeft: `3px solid ${color}` }}>
               <code style={{ color: 'var(--text-primary)' }}>{block.body}</code>
             </pre>
           </div>
@@ -118,14 +118,14 @@ export default function AICourse() {
       const parseInline = (str) =>
         str.split(/(\*\*[^*]+\*\*|\[[^\]]+\]\([^)]+\))/g).map((p, j) => {
           if (p.startsWith('**') && p.endsWith('**')) {
-            return <strong key={j} style={{ color: mod.color } }>{p.slice(2, -2)}</strong>;
+            return <strong key={j} style={{ color: color }}>{p.slice(2, -2)}</strong>;
           }
           const linkMatch = p.match(/^\[([^\]]+)\]\(([^)]+)\)$/);
           if (linkMatch) {
             const isYouTube = /youtu\.be|youtube\.com/.test(linkMatch[2]);
             return (
               <a key={j} href={linkMatch[2]} target="_blank" rel="noopener noreferrer"
-                style={{ color: mod.color, textDecoration: 'underline', display: 'inline-flex', alignItems: 'center', gap: '5px' }}>
+                style={{ color: color, textDecoration: 'underline', display: 'inline-flex', alignItems: 'center', gap: '5px' }}>
                 {isYouTube && (
                   <svg width="18" height="13" style={{ flexShrink: 0, verticalAlign: 'middle' }}>
                     <use href="/icons.svg#youtube-icon" />
@@ -151,12 +151,12 @@ export default function AICourse() {
       if (line.startsWith('#')) {
         const lvl = line.match(/^#+/)[0].length;
         const txt = line.replace(/^#+\s/, '');
-        return <div key={bi} style={{ fontSize: lvl === 1 ? '1.2rem' : '1rem', fontWeight: 700, marginTop: '12px', marginBottom: '4px', color: mod.color }}>{txt}</div>;
+        return <div key={bi} style={{ fontSize: lvl === 1 ? '1.2rem' : '1rem', fontWeight: 700, marginTop: '12px', marginBottom: '4px', color: color }}>{txt}</div>;
       }
       if (line.startsWith('[ ] ')) {
         return (
           <div key={bi} style={{ display: 'flex', gap: '8px', alignItems: 'flex-start', margin: '4px 0' }}>
-            <span style={{ fontSize: '1rem', color: mod.color }}>☐</span>
+            <span style={{ fontSize: '1rem', color: color }}>☐</span>
             <span>{parseBold(line.slice(4))}</span>
           </div>
         );
@@ -168,6 +168,63 @@ export default function AICourse() {
 
   const contentRef = useRef(null);
   const certRef = useRef(null);
+  const pdfRef = useRef(null);
+  const [pdfGenerating, setPdfGenerating] = useState(false);
+  const [pdfImages, setPdfImages] = useState({});
+
+  // Fetch each image as a base64 data URL so html2canvas can render it reliably
+  const preloadImages = async () => {
+    const names = [...new Set(
+      modules.flatMap(m => m.sections.flatMap(s =>
+        [...s.content.matchAll(/\{(\w+)\}/g)].map(x => x[1])
+      ))
+    )];
+    const map = {};
+    await Promise.all(names.map(async name => {
+      for (const ext of ['png', 'jpg', 'jpeg']) {
+        try {
+          const res = await fetch(`/images/${name}.${ext}`);
+          if (!res.ok) continue;
+          const blob = await res.blob();
+          map[name] = await new Promise(resolve => {
+            const reader = new FileReader();
+            reader.onload = e => resolve(e.target.result);
+            reader.readAsDataURL(blob);
+          });
+          break;
+        } catch { continue; }
+      }
+    }));
+    return map;
+  };
+
+  const downloadPDF = async () => {
+    setPdfGenerating(true);
+    const imageMap = await preloadImages();
+    setPdfImages(imageMap);
+    await new Promise(r => setTimeout(r, 400)); // wait for images to render in hidden div
+    try {
+      const { jsPDF } = await import('jspdf');
+      const A4_W = 210;
+      const pages = pdfRef.current.querySelectorAll('.pdf-section');
+      let pdf = null;
+      for (let i = 0; i < pages.length; i++) {
+        const canvas = await html2canvas(pages[i], { scale: 1.5, useCORS: true, backgroundColor: '#ffffff' });
+        const imgData = canvas.toDataURL('image/jpeg', 0.92);
+        const imgH = (canvas.height * A4_W) / canvas.width;
+        if (i === 0) {
+          pdf = new jsPDF({ orientation: 'p', unit: 'mm', format: [A4_W, imgH] });
+        } else {
+          pdf.addPage([A4_W, imgH]);
+        }
+        pdf.addImage(imgData, 'JPEG', 0, 0, A4_W, imgH);
+      }
+      pdf.save('AI_Field_Guide_Complete.pdf');
+    } finally {
+      setPdfGenerating(false);
+      setPdfImages({});
+    }
+  };
 
   const downloadCert = async () => {
     if (!certRef.current) return;
@@ -354,17 +411,31 @@ export default function AICourse() {
                   outline: 'none', boxSizing: 'border-box',
                 }}
               />
-              <button
-                onClick={() => certName.trim() && setShowCert(true)}
-                style={{
-                  padding: '11px 32px', borderRadius: '8px', border: 'none',
-                  background: certName.trim() ? '#6366f1' : 'var(--border-color)',
-                  color: '#fff', fontSize: '0.9rem', fontWeight: 700,
-                  cursor: certName.trim() ? 'pointer' : 'not-allowed',
-                  transition: 'background 0.2s',
-                }}>
-                🏆 Get My Certificate
-              </button>
+              <div style={{ display: 'flex', gap: '12px', justifyContent: 'center', flexWrap: 'wrap' }}>
+                <button
+                  onClick={() => certName.trim() && setShowCert(true)}
+                  style={{
+                    padding: '11px 32px', borderRadius: '8px', border: 'none',
+                    background: certName.trim() ? '#6366f1' : 'var(--border-color)',
+                    color: '#fff', fontSize: '0.9rem', fontWeight: 700,
+                    cursor: certName.trim() ? 'pointer' : 'not-allowed',
+                    transition: 'background 0.2s',
+                  }}>
+                  🏆 Get My Certificate
+                </button>
+                <button
+                  onClick={downloadPDF}
+                  disabled={pdfGenerating}
+                  style={{
+                    padding: '11px 32px', borderRadius: '8px', border: 'none',
+                    background: pdfGenerating ? 'var(--border-color)' : '#059669',
+                    color: '#fff', fontSize: '0.9rem', fontWeight: 700,
+                    cursor: pdfGenerating ? 'not-allowed' : 'pointer',
+                    transition: 'background 0.2s',
+                  }}>
+                  {pdfGenerating ? '⏳ Generating PDF...' : '📄 Download AI Course PDF'}
+                </button>
+              </div>
             </div>
           )}
         </main>
@@ -475,6 +546,49 @@ export default function AICourse() {
           </div>
         )}
       </div>
+
+      {/* Hidden PDF content — rendered off-screen for html2canvas capture */}
+      {pdfGenerating && (
+        <div ref={pdfRef} style={{ position: 'fixed', left: '-9999px', top: 0, width: '860px', background: '#fff', zIndex: -1 }}>
+          {modules.map((m, mi) =>
+            m.sections.map((s, si) => {
+              const imageNames = [...s.content.matchAll(/\{(\w+)\}/g)].map(x => x[1]);
+              return (
+                <div key={`${mi}-${si}`} className="pdf-section" style={{
+                  width: '860px', padding: '56px 64px', boxSizing: 'border-box',
+                  background: '#ffffff', fontFamily: 'system-ui, sans-serif',
+                  borderBottom: '4px solid #f0f0f0',
+                }}>
+                  {/* Module + Section header */}
+                  <div style={{ fontSize: '10px', fontWeight: 700, letterSpacing: '2px', color: m.color, textTransform: 'uppercase', marginBottom: '6px' }}>
+                    {m.emoji} Module {m.id} — {m.title}
+                  </div>
+                  <div style={{ fontSize: '22px', fontWeight: 800, color: '#1a1a2e', borderLeft: `4px solid ${m.color}`, paddingLeft: '14px', marginBottom: '24px', lineHeight: 1.3 }}>
+                    {s.title}
+                  </div>
+                  {/* Content */}
+                  <div style={{ fontSize: '13px', lineHeight: '1.75', color: '#222' }}>
+                    {renderContent(s.content, m.color)}
+                  </div>
+                  {/* Images */}
+                  {imageNames.filter(name => pdfImages[name]).map((name, ii) => (
+                    <div key={ii} style={{ marginTop: '20px' }}>
+                      <img src={pdfImages[name]} alt={name}
+                        style={{ maxWidth: '100%', borderRadius: '8px', border: '1px solid #e5e7eb' }}
+                      />
+                    </div>
+                  ))}
+                  {/* Page footer */}
+                  <div style={{ marginTop: '32px', paddingTop: '12px', borderTop: '1px solid #e5e7eb', display: 'flex', justifyContent: 'space-between', fontSize: '10px', color: '#999' }}>
+                    <span>Complete AI Field Guide for Software Engineers</span>
+                    <span>Section {si + 1} of {m.sections.length}</span>
+                  </div>
+                </div>
+              );
+            })
+          )}
+        </div>
+      )}
     </div>
   );
 }
