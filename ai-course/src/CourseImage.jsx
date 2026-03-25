@@ -20,7 +20,7 @@ export default function CourseImage({ name, color }) {
   const [failed, setFailed] = useState(false)
   const [zoomed, setZoomed] = useState(false)
 
-  const src = `/images/${name}.${EXTENSIONS[extIndex]}`
+  const src = `${import.meta.env.BASE_URL}images/${name}.${EXTENSIONS[extIndex]}`
 
   const handleError = () => {
     if (extIndex < EXTENSIONS.length - 1) {

@@ -11,6 +11,13 @@ export default function AICourse() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [certName, setCertName] = useState('');
   const [showCert, setShowCert] = useState(false);
+  const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
+
+  useEffect(() => {
+    const handleResize = () => setIsMobile(window.innerWidth < 768);
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
 
   const mod = modules[activeModule];
   const section = mod.sections[activeSection];
@@ -183,7 +190,7 @@ export default function AICourse() {
     await Promise.all(names.map(async name => {
       for (const ext of ['png', 'jpg', 'jpeg']) {
         try {
-          const res = await fetch(`/images/${name}.${ext}`);
+          const res = await fetch(`${import.meta.env.BASE_URL}images/${name}.${ext}`);
           if (!res.ok) continue;
           const blob = await res.blob();
           map[name] = await new Promise(resolve => {
@@ -254,24 +261,24 @@ export default function AICourse() {
   const isLast = activeModule === modules.length - 1 && activeSection === mod.sections.length - 1;
 
   return (
-    <div style={{ fontFamily: 'system-ui, sans-serif', height: '100vh', overflow: 'hidden', background: 'var(--bg-primary)', color: 'var(--text-primary)', display: 'flex', flexDirection: 'column' }}>
+    <div style={{ fontFamily: 'system-ui, sans-serif', height: '100dvh', overflow: 'hidden', background: 'var(--bg-primary)', color: 'var(--text-primary)', display: 'flex', flexDirection: 'column' }}>
 
       {/* Top Nav */}
-      <nav style={{ background: 'var(--bg-secondary)', borderBottom: '1px solid var(--border-color)', padding: '12px 20px', display: 'flex', alignItems: 'center', gap: '12px', position: 'sticky', top: 0, zIndex: 100 }}>
-        <button onClick={() => setSidebarOpen(o => !o)} style={{ background: 'transparent', border: 'none', color: 'var(--text-primary)', cursor: 'pointer', fontSize: '1.2rem', padding: '4px 8px', borderRadius: '6px' }}>☰</button>
-        <div style={{ flex: 1 }}>
-          <div style={{ fontSize: '0.7rem', fontWeight: 700, letterSpacing: '2px', color: mod.color, textTransform: 'uppercase' }}>Comprehensive AI Course for Senior Engineers</div>
-          <div style={{ fontSize: '0.85rem', fontWeight: 600, marginTop: '1px' }}>{mod.emoji} {mod.title}</div>
+      <nav style={{ background: 'var(--bg-secondary)', borderBottom: '1px solid var(--border-color)', padding: isMobile ? '10px 12px' : '12px 20px', display: 'flex', alignItems: 'center', gap: '10px', position: 'sticky', top: 0, zIndex: 100, flexShrink: 0 }}>
+        <button onClick={() => setSidebarOpen(o => !o)} style={{ background: 'transparent', border: 'none', color: 'var(--text-primary)', cursor: 'pointer', fontSize: '1.2rem', padding: '4px 8px', borderRadius: '6px', flexShrink: 0 }}>☰</button>
+        <div style={{ flex: 1, minWidth: 0, overflow: 'hidden' }}>
+          {!isMobile && <div style={{ fontSize: '0.7rem', fontWeight: 700, letterSpacing: '2px', color: mod.color, textTransform: 'uppercase', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>Comprehensive AI Course for Senior Engineers</div>}
+          <div style={{ fontSize: isMobile ? '0.8rem' : '0.85rem', fontWeight: 600, marginTop: isMobile ? 0 : '1px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{mod.emoji} {mod.title}</div>
         </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.78rem', color: 'var(--text-secondary)' }}>
-          <div style={{ width: '80px', height: '6px', background: 'var(--border-color)', borderRadius: '3px', overflow: 'hidden' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.78rem', color: 'var(--text-secondary)', flexShrink: 0 }}>
+          <div style={{ width: isMobile ? '56px' : '80px', height: '6px', background: 'var(--border-color)', borderRadius: '3px', overflow: 'hidden' }}>
             <div style={{ width: `${progress}%`, height: '100%', background: mod.color, borderRadius: '3px', transition: 'width 0.3s' }} />
           </div>
           <span>{progress}%</span>
         </div>
       </nav>
 
-      <div style={{ display: 'flex', flex: 1, overflow: 'hidden', position: 'relative' }}>
+      <div style={{ display: 'flex', flex: 1, overflow: isMobile ? 'auto' : 'hidden', flexDirection: isMobile ? 'column' : 'row', position: 'relative' }}>
         {/* Sidebar Overlay (mobile) */}
         {sidebarOpen && (
           <div onClick={() => setSidebarOpen(false)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 49 }} />
@@ -282,10 +289,10 @@ export default function AICourse() {
           width: '260px', flexShrink: 0, borderRight: '1px solid var(--border-color)',
           padding: '16px 12px', display: 'flex', flexDirection: 'column', gap: '4px',
           overflowY: 'auto', background: 'var(--bg-secondary)',
-          position: window.innerWidth < 768 ? 'fixed' : 'sticky',
-          top: window.innerWidth < 768 ? 0 : 53,
-          left: 0, height: window.innerWidth < 768 ? '100vh' : 'calc(100vh - 53px)',
-          transform: sidebarOpen || window.innerWidth >= 768 ? 'translateX(0)' : 'translateX(-100%)',
+          position: isMobile ? 'fixed' : 'sticky',
+          top: isMobile ? 0 : 53,
+          left: 0, height: isMobile ? '100dvh' : 'calc(100dvh - 53px)',
+          transform: sidebarOpen || !isMobile ? 'translateX(0)' : 'translateX(-100%)',
           transition: 'transform 0.25s ease',
           zIndex: 50,
         }}>
@@ -329,7 +336,7 @@ export default function AICourse() {
         </aside>
 
         {/* Main Content */}
-        <main ref={contentRef} style={{ flex: 1, padding: '28px 32px', overflowY: 'auto', maxWidth: sectionImageNames.length ? '700px' : '760px', minWidth: 0 }}>
+        <main ref={contentRef} style={{ flex: isMobile ? 'none' : 1, padding: isMobile ? '20px 16px' : '28px 32px', overflowY: isMobile ? 'visible' : 'auto', maxWidth: isMobile ? 'none' : (sectionImageNames.length ? '700px' : '760px'), minWidth: 0 }}>
           {/* Section Header */}
           <div style={{ borderLeft: `3px solid ${mod.color}`, paddingLeft: '16px', marginBottom: '24px' }}>
             <div style={{ fontSize: '0.72rem', fontWeight: 600, color: mod.color, letterSpacing: '1px', textTransform: 'uppercase', marginBottom: '4px' }}>
@@ -445,15 +452,18 @@ export default function AICourse() {
           <div style={{
             position: 'fixed', inset: 0, zIndex: 999,
             background: 'rgba(0,0,0,0.85)',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            padding: '24px',
+            display: 'flex', alignItems: isMobile ? 'flex-start' : 'center', justifyContent: 'center',
+            padding: isMobile ? '16px' : '24px',
+            paddingBottom: isMobile ? '80px' : '24px',
+            overflowY: 'auto',
           }}>
             {/* Certificate Card */}
             <div ref={certRef} style={{
-              background: '#fff', borderRadius: '16px', padding: '52px 60px',
+              background: '#fff', borderRadius: '16px',
+              padding: isMobile ? '32px 20px' : '52px 60px',
               maxWidth: '680px', width: '100%', textAlign: 'center',
               boxShadow: '0 0 80px #6366f155',
-              border: '8px solid #6366f1',
+              border: isMobile ? '5px solid #6366f1' : '8px solid #6366f1',
               position: 'relative', fontFamily: 'Georgia, serif',
             }}>
               {/* Corner decoration */}
@@ -476,7 +486,7 @@ export default function AICourse() {
                 This is to certify that
               </div>
               <div style={{
-                fontSize: '2rem', fontWeight: 800, color: '#1a1a2e',
+                fontSize: isMobile ? '1.6rem' : '2rem', fontWeight: 800, color: '#1a1a2e',
                 borderBottom: '2px solid #6366f144', paddingBottom: '10px',
                 marginBottom: '18px', fontFamily: 'Georgia, serif',
               }}>
@@ -485,22 +495,29 @@ export default function AICourse() {
               <div style={{ fontSize: '0.9rem', color: '#444', marginBottom: '6px' }}>
                 has successfully completed
               </div>
-              <div style={{ fontSize: '1.25rem', fontWeight: 700, color: '#6366f1', marginBottom: '6px' }}>
+              <div style={{ fontSize: isMobile ? '1rem' : '1.25rem', fontWeight: 700, color: '#6366f1', marginBottom: '6px' }}>
                 Comprehensive AI Field Guide for Software Engineers
               </div>
               <div style={{ fontSize: '0.8rem', color: '#888', marginBottom: '28px' }}>
                 Covering AI/ML, LLMs, RAG, Prompt Engineering & Practical AI Stack
               </div>
 
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', borderTop: '1px solid #eee', paddingTop: '20px' }}>
-                <div style={{ textAlign: 'left' }}>
+              <div style={{
+                display: 'flex',
+                justifyContent: isMobile ? 'center' : 'space-between',
+                alignItems: 'center',
+                flexDirection: isMobile ? 'column' : 'row',
+                gap: isMobile ? '10px' : 0,
+                borderTop: '1px solid #eee', paddingTop: '20px',
+              }}>
+                <div style={{ textAlign: 'center' }}>
                   <div style={{ fontSize: '0.95rem', fontWeight: 700, color: '#1a1a2e' }}>Santhosha 😊</div>
                   <div style={{ fontSize: '0.75rem', color: '#888' }}>Course Author</div>
                 </div>
                 <div style={{ textAlign: 'center' }}>
                   <div style={{ fontSize: '1.6rem' }}>⭐</div>
                 </div>
-                <div style={{ textAlign: 'right' }}>
+                <div style={{ textAlign: 'center' }}>
                   <div style={{ fontSize: '0.85rem', fontWeight: 600, color: '#1a1a2e' }}>
                     {new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })}
                   </div>
@@ -510,19 +527,20 @@ export default function AICourse() {
             </div>
 
             {/* Controls outside certificate */}
-            <div style={{ position: 'fixed', bottom: '28px', left: '50%', transform: 'translateX(-50%)', display: 'flex', gap: '12px', alignItems: 'center' }}>
+            <div style={{ position: 'fixed', bottom: '20px', left: '50%', transform: 'translateX(-50%)', display: 'flex', gap: '10px', alignItems: 'center', whiteSpace: 'nowrap' }}>
               <button onClick={downloadCert} style={{
                 background: '#6366f1', border: 'none',
                 color: '#fff', borderRadius: '20px', padding: '10px 22px',
                 fontSize: '0.85rem', fontWeight: 700, cursor: 'pointer',
-                display: 'flex', alignItems: 'center', gap: '7px',
+                display: 'flex', alignItems: 'center', gap: '6px', whiteSpace: 'nowrap',
               }}>
-                ⬇️ Download Certificate
+                <span style={{ fontSize: '1rem', lineHeight: 1 }}>⬇</span>
+                <span>Download Certificate</span>
               </button>
               <button onClick={() => setShowCert(false)} style={{
                 background: 'rgba(255,255,255,0.15)', border: '1px solid rgba(255,255,255,0.3)',
                 color: '#fff', borderRadius: '20px', padding: '10px 18px',
-                fontSize: '0.85rem', cursor: 'pointer',
+                fontSize: '0.85rem', cursor: 'pointer', whiteSpace: 'nowrap',
               }}>✕ Close</button>
             </div>
           </div>
@@ -532,8 +550,12 @@ export default function AICourse() {
         {sectionImageNames.length > 0 && (
           <div style={{
             display: 'flex', flexDirection: 'column', gap: '20px',
-            padding: '24px 16px', borderLeft: '1px solid var(--border-color)',
-            minWidth: '280px', maxWidth: '420px', width: '100%', overflowY: 'auto',
+            padding: isMobile ? '0 16px 24px' : '24px 16px',
+            borderLeft: isMobile ? 'none' : '1px solid var(--border-color)',
+            borderTop: isMobile ? '1px solid var(--border-color)' : 'none',
+            minWidth: isMobile ? 'auto' : '280px',
+            maxWidth: isMobile ? 'none' : '420px',
+            width: '100%', overflowY: isMobile ? 'visible' : 'auto', flexShrink: isMobile ? 1 : 0,
           }}>
             {sectionImageNames.map((name, i) => (
               <div key={i} style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
@@ -545,6 +567,7 @@ export default function AICourse() {
             ))}
           </div>
         )}
+
       </div>
 
       {/* Hidden PDF content — rendered off-screen for html2canvas capture */}
